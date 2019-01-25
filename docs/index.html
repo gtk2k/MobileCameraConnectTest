@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+
+<body>
+    <div>
+        <select id="sel"></select>
+    </div>
+    <video id="vid" muted autoplay playsinline></video>
+    <script>
+        let peer = null;
+        const ws = new WebSocket('ws://172.16.1.49:12777');
+        ws.onopen = async evt => {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const cams = devices.filter(d => d.kind == 'videoinput');
+            cams.forEach(cam => {
+                const opt = new Option();
+                opt.value = cam.deviceId;
+                opt.text = cam.label;
+                sel.appendChild(opt);
+            });
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: sel.value }
+            });
+            peer = new RTCPeerConnection(null);
+            peer.onicecandidate = evt => {
+                if (evt.candidate) {
+                    ws.send(JSON.stringify(evt.candidate));
+                }
+            };
+            stream.getTracks().forEach(t => peer.addTrack(t, stream));
+        };
+
+        sel.onchange = evt => {
+            const stream = navigator.mediaDevices.getUserMedia({
+                video: { deviceId: sel.value }
+            });
+            const sender = peer.getSenders()[0];
+            sender.replaceTrack(stream.getVideoTracks()[0]);
+        };
+    </script>
+</body>
+
+</html>
